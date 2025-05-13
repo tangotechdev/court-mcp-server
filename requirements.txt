@@ -1,0 +1,9 @@
+python-dotenv
+python-dateutil
+requests
+
+langchain
+langgraph
+langchain_community
+langchain-mcp-adapters 
+
