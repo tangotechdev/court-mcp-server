@@ -106,7 +106,8 @@ async def fetch_closings(county_name: str) -> dict:
         "source": "https://www.nccourts.gov/closings"
     }
 
-    logger.info("fetch_closings:\n%s", json.dumps(result, indent=2))
+    fetch_closings_result = json.dumps(result, separators=(",", ":"))
+    logger.info(fetch_closings_result)
 
     return result
 
@@ -159,7 +160,8 @@ async def query_court_form(query: str) -> dict:
         "source": url
     }
 
-    logger.info("query_court_form result:\n%s", json.dumps(result, indent=2))
+    query_forms_result = json.dumps(result, separators=(",", ":"))
+    logger.info(query_forms_result)
 
     return result
 
