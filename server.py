@@ -5,6 +5,8 @@ import difflib
 import httpx
 from dateutil import parser
 from datetime import datetime
+from bs4 import BeautifulSoup
+import json
 
 
 mcp = FastMCP("Court Tools")
@@ -36,6 +38,7 @@ async def fetch_closings(county_name: str) -> dict:
     Returns:
         A dict with a single key 'description' containing the formatted alert text.
     """
+
     url = "https://nccourts-01-prod-json.s3.amazonaws.com/juno_alerts.json"
     county_lower = county_name.strip().lower()
 
@@ -89,7 +92,70 @@ async def fetch_closings(county_name: str) -> dict:
 
                 description_parts.append("\n".join(lines))
 
-    return {"description": "\n\n".join(description_parts).strip()}
+    description = "\n\n".join(description_parts).strip()
+
+    result = {
+        "answer": description,
+        "source": "https://www.nccourts.gov/closings"
+    }
+
+    print(json.dumps(result, indent=2))
+
+    return result
+
+@mcp.tool()
+async def query_court_form(query: str) -> dict:
+    """
+    Search North Carolina court forms by keyword.
+    The user may ask for a specific form name like Civil Summons or form number like AOC-CV-100
+
+    Requires: 'query'
+
+   Returns:
+    dict: JSON object with two keys—
+    answer (str): newline-separated list of up to 3 form numbers & names,
+    source (str): the URL used for the search.
+    """
+    suggestion_keyword = query.strip().rstrip('?')
+    url = (
+        "https://www.nccourts.gov/documents/forms?contains="
+        + suggestion_keyword
+        + "&field_form_type_target_id=All&field_language_target_id=All"
+    )
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        html = resp.text
+
+    soup = BeautifulSoup(html, 'html.parser')
+    items = soup.find_all('article', class_='list__item')
+
+    results = []
+    for el in items:
+        num = el.select_one('div:nth-child(1) > .badge--pill')
+        name = el.select_one('h5')
+        link = el.select_one('h5 > a')
+        if num and name and link:
+            form_number = re.sub(r"(\r\n|\n|\r)", "", num.text).strip()
+            form_name = re.sub(r"(\r\n|\n|\r)", "", name.text).strip()
+            results.append(f"{form_number} - {form_name}")
+
+    if not results:
+        return {"answer": "No forms found.", "source": url}
+
+    print(results)
+    answer = "\n".join(results[:3])
+
+    result = {
+        "answer": answer,
+        "source": url
+    }
+
+    print(json.dumps(result, indent=2))
+
+    return result
+
 
 
 if __name__ == "__main__":

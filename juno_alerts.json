@@ -1,0 +1,295 @@
+{
+    "updatedate": "2024-08-07 11:06:56",
+    "countyalerts": [
+        {
+            "county": "New Hanover",
+            "associatedcounty": "",
+            "dates": [
+                {
+                    "startdate": "2024-08-06",
+                    "enddate": "2024-08-09",
+                    "alerts": [
+                        {
+                            "description": "The courthouse, Clerk's Office, and District Court remain open. Superior Court sessions are canceled.",
+                            "startdate": "2024-08-06",
+                            "enddate": "2024-08-09",
+                            "publishdate": "2024-08-06",
+                            "facility": {
+                                "name": "All Facilities",
+                                "address": "",
+                                "city": "",
+                                "zip": ""
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "Courthouse",
+                                    "closing": "Open 8:30 AM"
+                                },
+                                {
+                                    "title": "Clerk's Office",
+                                    "closing": "Open 8:30 AM"
+                                },
+                                {
+                                    "title": "District Civil",
+                                    "closing": "Open 8:30 AM"
+                                },
+                                {
+                                    "title": "District Criminal",
+                                    "closing": "Open 8:30 AM"
+                                },
+                                {
+                                    "title": "Superior Civil",
+                                    "closing": "Canceled"
+                                },
+                                {
+                                    "title": "Superior Criminal",
+                                    "closing": "Canceled"
+                                }
+                            ],
+                            "filinginstructions": "",
+                            "alternatename": "",
+                            "alternateaddress": "",
+                            "alternatecity": "",
+                            "alternatezip": "",
+                            "alternatephone": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "county": "Cumberland",
+            "associatedcounty": "",
+            "dates": [
+                {
+                    "startdate": "2024-08-07",
+                    "enddate": "2024-08-07",
+                    "alerts": [
+                        {
+                            "description": "",
+                            "startdate": "2024-08-07",
+                            "enddate": "2024-08-07",
+                            "publishdate": "2024-08-07",
+                            "facility": {
+                                "name": "Main",
+                                "address": "117 Dick St  ",
+                                "city": "Fayetteville",
+                                "zip": "28301"
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Will close early at 2:00 PM"
+                                }
+                            ],
+                            "filinginstructions": "There is a note on door of courthouse for alternate filing location information.",
+                            "alternatename": "",
+                            "alternateaddress": "",
+                            "alternatecity": "",
+                            "alternatezip": "",
+                            "alternatephone": ""
+                        }
+                    ]
+                },
+                {
+                    "startdate": "2024-08-08",
+                    "enddate": "2024-08-08",
+                    "alerts": [
+                        {
+                            "description": "",
+                            "startdate": "2024-08-08",
+                            "enddate": "2024-08-08",
+                            "publishdate": "2024-08-07",
+                            "facility": {
+                                "name": "Main",
+                                "address": "117 Dick St  ",
+                                "city": "Fayetteville",
+                                "zip": "28301"
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Closed"
+                                }
+                            ],
+                            "filinginstructions": "There is a note on door of courthouse for alternate filing location information.",
+                            "alternatename": "",
+                            "alternateaddress": "",
+                            "alternatecity": "",
+                            "alternatezip": "",
+                            "alternatephone": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "county": "Duplin",
+            "associatedcounty": "",
+            "dates": [
+                {
+                    "startdate": "2024-08-07",
+                    "enddate": "2024-08-08",
+                    "alerts": [
+                        {
+                            "description": "Closed due to incliment weather conditions.",
+                            "startdate": "2024-08-07",
+                            "enddate": "2024-08-08",
+                            "publishdate": "2024-08-06",
+                            "facility": {
+                                "name": "Main",
+                                "address": "112 Duplin St  ",
+                                "city": "Kenansville",
+                                "zip": "28349"
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Closed"
+                                }
+                            ],
+                            "filinginstructions": "",
+                            "alternatename": "Duplin County Magistrates Office",
+                            "alternateaddress": "107 Duplin Street",
+                            "alternatecity": "Kennansville",
+                            "alternatezip": "28349",
+                            "alternatephone": "910-275-7074"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "county": "Onslow",
+            "associatedcounty": "",
+            "dates": [
+                {
+                    "startdate": "2024-08-07",
+                    "enddate": "2024-08-08",
+                    "alerts": [
+                        {
+                            "description": "",
+                            "startdate": "2024-08-07",
+                            "enddate": "2024-08-08",
+                            "publishdate": "2024-08-06",
+                            "facility": {
+                                "name": "Main",
+                                "address": "602 Anne St  ",
+                                "city": "Jacksonville",
+                                "zip": "28540"
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Closed"
+                                }
+                            ],
+                            "filinginstructions": "",
+                            "alternatename": "The Magistrates Office ",
+                            "alternateaddress": "701 Tallman",
+                            "alternatecity": "Jacksonville",
+                            "alternatezip": "28540",
+                            "alternatephone": "910-478-3619"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "county": "Pender",
+            "associatedcounty": "",
+            "dates": [
+                {
+                    "startdate": "2024-08-07",
+                    "enddate": "2024-08-07",
+                    "alerts": [
+                        {
+                            "description": "Closed due to adverse weather.",
+                            "startdate": "2024-08-07",
+                            "enddate": "2024-08-07",
+                            "publishdate": "2024-08-06",
+                            "facility": {
+                                "name": "All Facilities",
+                                "address": "",
+                                "city": "",
+                                "zip": ""
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Closed"
+                                }
+                            ],
+                            "filinginstructions": "",
+                            "alternatename": "",
+                            "alternateaddress": "",
+                            "alternatecity": "",
+                            "alternatezip": "",
+                            "alternatephone": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "county": "Scotland",
+            "associatedcounty": "",
+            "dates": [
+                {
+                    "startdate": "2024-08-08",
+                    "enddate": "2024-08-08",
+                    "alerts": [
+                        {
+                            "description": "Adverse Weather",
+                            "startdate": "2024-08-08",
+                            "enddate": "2024-08-08",
+                            "publishdate": "2024-08-07",
+                            "facility": {
+                                "name": "Main",
+                                "address": "212 Biggs St  ",
+                                "city": "Laurinburg",
+                                "zip": "28352"
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Closed"
+                                }
+                            ],
+                            "filinginstructions": "",
+                            "alternatename": "Magistrates Office",
+                            "alternateaddress": "212 Biggs St, Laurinburg",
+                            "alternatecity": "Laurinburg",
+                            "alternatezip": "28353",
+                            "alternatephone": "910-266-4540"
+                        },
+                        {
+                            "description": "Adverse Weather.",
+                            "startdate": "2024-08-08",
+                            "enddate": "2024-08-08",
+                            "publishdate": "2024-08-07",
+                            "facility": {
+                                "name": "Main",
+                                "address": "212 Biggs St  ",
+                                "city": "Laurinburg",
+                                "zip": "28352"
+                            },
+                            "officealerts": [
+                                {
+                                    "title": "ALL buildings and courts sessions",
+                                    "closing": "Closed"
+                                }
+                            ],
+                            "filinginstructions": "",
+                            "alternatename": "Magistrates Office",
+                            "alternateaddress": "212 Biggs St, Laurinburg",
+                            "alternatecity": "Laurinburg",
+                            "alternatezip": "28353",
+                            "alternatephone": "910-266-4540"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
