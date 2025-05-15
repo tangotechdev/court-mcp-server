@@ -7,7 +7,14 @@ from dateutil import parser
 from datetime import datetime
 from bs4 import BeautifulSoup
 import json
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,              
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
+logger = logging.getLogger(__name__)
 
 mcp = FastMCP("Court Tools")
 
@@ -99,7 +106,7 @@ async def fetch_closings(county_name: str) -> dict:
         "source": "https://www.nccourts.gov/closings"
     }
 
-    print(json.dumps(result, indent=2))
+    logger.info("fetch_closings:\n%s", json.dumps(result, indent=2))
 
     return result
 
@@ -152,7 +159,7 @@ async def query_court_form(query: str) -> dict:
         "source": url
     }
 
-    print(json.dumps(result, indent=2))
+    logger.info("query_court_form result:\n%s", json.dumps(result, indent=2))
 
     return result
 

@@ -8,3 +8,5 @@ langchain_community
 langchain-mcp-adapters 
 
 BeautifulSoup4
+
+logger
