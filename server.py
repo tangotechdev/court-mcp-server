@@ -43,7 +43,9 @@ async def fetch_closings(county_name: str) -> dict:
     Requires: 'county_name'
 
     Returns:
-        A dict with a single key 'description' containing the formatted alert text.
+         dict: JSON object with two keys—
+        answer (str): 'description' containing the formatted alert text,
+        source (str): the URL of https://www.nccourts.gov/closings
     """
 
     url = "https://nccourts-01-prod-json.s3.amazonaws.com/juno_alerts.json"
