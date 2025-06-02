@@ -1,3 +1,4 @@
+import os
 from mcp.server.fastmcp import FastMCP
 import requests
 import re
@@ -14,9 +15,11 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
+port = int(os.environ.get("PORT", 10000))
+
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Court Tools")
+mcp = FastMCP("Court Tools" host="0.0.0.0", port=port)
 
 
 def normalize_location(county_name: str) -> str:
