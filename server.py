@@ -1,3 +1,4 @@
+import os
 from mcp.server.fastmcp import FastMCP
 import requests
 import re
@@ -175,4 +176,5 @@ async def query_court_form(query: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="sse")
+    port = int(os.environ.get("PORT", 10000))
+    mcp.run(transport="sse", host="0.0.0.0", port=port)
