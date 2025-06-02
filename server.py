@@ -38,7 +38,7 @@ def format_date(date_str: str) -> str:
 async def fetch_closings(county_name: str) -> dict:
     """
     Find if a courthouse or clerks office or county is closed based on a county name.
-    The user may ask if the courthosue is closed, there is a weather outage, closed due to weather, etc.
+    The user may ask if there is a closing, the courthosue is closed, there is a weather outage, closed due to weather, etc.
 
     Requires: 'county_name'
 
@@ -102,6 +102,11 @@ async def fetch_closings(county_name: str) -> dict:
                 description_parts.append("\n".join(lines))
 
     description = "\n\n".join(description_parts).strip()
+
+    if not description:
+        description = (
+            f"No specific closing alert is currently posted for '{county_name}'. "
+        )
 
     result = {
         "answer": description,
