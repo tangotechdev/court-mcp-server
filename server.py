@@ -19,7 +19,7 @@ port = int(os.environ.get("PORT", 10000))
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Court Tools" host="0.0.0.0", port=port)
+mcp = FastMCP("Court Tools", host="0.0.0.0", port=port)
 
 
 def normalize_location(county_name: str) -> str:
