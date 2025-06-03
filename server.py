@@ -108,7 +108,7 @@ async def fetch_closings(county_name: str) -> dict:
 
     if not description:
         description = (
-            f"No specific closing alert is currently posted for '{county_name}'. "
+            f"No specific adviosry or closing is reported for {county_name}. "
         )
 
     result = {
