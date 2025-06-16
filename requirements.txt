@@ -1,12 +1,11 @@
 python-dotenv
 python-dateutil
 requests
-
 langchain
 langgraph
 langchain_community
 langchain-mcp-adapters 
-
 BeautifulSoup4
-
 logger
+playwright>=1.44.0
+python-anticaptcha>=0.6.0
