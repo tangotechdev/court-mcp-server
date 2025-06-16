@@ -215,7 +215,7 @@ async def query_court_form(query: str) -> dict:
         if num and name and link:
             form_number = re.sub(r"(\r\n|\n|\r)", "", num.text).strip()
             form_name = re.sub(r"(\r\n|\n|\r)", "", name.text).strip()
-            results.append(f"{form_number} - {form_name}")
+            results.append(f"{form_number} - {form_name}\n\n")
 
     if not results:
         return {"answer": "No forms found.", "source": url}
