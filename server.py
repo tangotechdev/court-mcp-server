@@ -471,7 +471,7 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
                     f"(Case No. {result['Case Number']}) scheduled on {result['Date/Time']}. "
                     f"It will be held in {result['Courtroom']}. "
                     f"The presiding judge is {result['Judge'] or 'Unknown'}. "
-                    f"- More Details: {result['Detail URL']}"
+                    f"<a href='{result['Detail URL']}' target='_blank'>More Details</a>"
                 )
 
 
