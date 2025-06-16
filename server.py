@@ -237,12 +237,15 @@ async def query_court_form(query: str) -> dict:
 async def court_dates(case_number: str) -> dict:
     """
     Search for upcoming North Carolina court dates based on case number.
+    The user may ask for court date or when is my court date.
+    THe case_number needs to be formatted like: 25CR000000-123
 
     Requires: 'case_number'
 
     Returns:
         dict: JSON object with the court date info and a link to the case.
     """
+    
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
