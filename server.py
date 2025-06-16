@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import json
 import logging
 import asyncio
+from datetime import datetime, timedelta
 from python_anticaptcha import AnticaptchaClient, NoCaptchaTaskProxylessTask
 from playwright.async_api import async_playwright
 
@@ -20,7 +21,11 @@ logging.basicConfig(
 DASHBOARD_URL = "https://portal-nc.tylertech.cloud/Portal/Home/Dashboard/26"
 SITE_KEY = "6LfqmHkUAAAAAAKhHRHuxUy6LOMRZSG2LvSwWPO9"
 ANTICAPTCHA_KEY = os.getenv("ANTICAPTCHA_KEY", "f438aa48dc4f094f0add4d5fce564c27")
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")
+
+
+today = datetime.today()
+future = today + timedelta(days=5 * 365)
 
 port = int(os.environ.get("PORT", 10000))
 
@@ -54,6 +59,41 @@ async def solve_captcha_async():
     if not token:
         raise RuntimeError("CAPTCHA solving failed – empty token.")
     return token
+
+
+def format_hearing_message(r):
+    try:
+        dt = parser.parse(r["Date/Time"])
+        date_str = dt.strftime("%B %-d, %Y")
+        time_str = dt.strftime("%-I:%M %p")
+    except Exception:
+        date_str = r["Date/Time"]
+        time_str = ""
+
+    # Extract defendant's name and clean it
+    style = r.get("Style/Defendant", "")
+    last_first = style.split(",")
+    if len(last_first) == 2:
+        defendant_name = f"{last_first[1].strip()} {last_first[0].strip()}"
+    else:
+        defendant_name = style.strip()
+
+    # Normalize courtroom location
+    courtroom = r.get("Courtroom", "")
+    if "courthouse" not in courtroom.lower():
+        courtroom += " at the County Courthouse"
+
+    # Normalize judge name
+    judge_raw = r.get("Judge", "")
+    judge = judge_raw.title().replace(",", "") if judge_raw else "Unknown"
+
+    message = (
+        f"{defendant_name} has a {r['Hearing Type']} for a {r['Case Type'].lower()} case "
+        f"(Case No. {r['Case Number']}) scheduled on {date_str} at {time_str}. "
+        f"It will be held in {courtroom}. The presiding judge is {judge}."
+    )
+
+    return message
 
 @mcp.tool()
 async def fetch_closings(county_name: str) -> dict:
@@ -229,8 +269,8 @@ async def court_dates(case_number: str) -> dict:
                         el.style.display = 'block';
                     }
                 """, token)
-                await page.wait_for_function("document.getElementById('g-recaptcha-response').value.length > 0")
-                logger.info("CAPTCHA solved and token injected.")
+            await page.wait_for_function("document.getElementById('g-recaptcha-response').value.length > 0")
+            logger.info("CAPTCHA solved and token injected.")
 
             await page.select_option("#cboHSLocationGroup", label="All Locations")
             await page.select_option("#cboHSHearingTypeGroup", label="All Hearing Types")
@@ -240,7 +280,7 @@ async def court_dates(case_number: str) -> dict:
             await page.fill("#SearchCriteria_DateFrom", today.strftime("%m/%d/%Y"))
             await page.fill("#SearchCriteria_DateTo", future.strftime("%m/%d/%Y"))
             await page.click("#btnHSSubmit")
-
+            logger.info("Submit Data")
             try:
                 await page.wait_for_function(
                     "() => document.querySelectorAll('td.data-heading a.caseLink').length > 0",
@@ -255,6 +295,7 @@ async def court_dates(case_number: str) -> dict:
             results = []
             for row in rows:
                 try:
+                    logger.info("Found Court Date")
                     case_number_elem = row.locator("td.data-heading a.caseLink")
                     if await case_number_elem.count() == 0:
                         continue
@@ -263,9 +304,14 @@ async def court_dates(case_number: str) -> dict:
                     relative_url = await case_number_elem.get_attribute("data-url")
                     full_url = f"https://portal-nc.tylertech.cloud{relative_url.strip()}" if relative_url else ""
 
-                    def safe_text(sel):
-                        el = row.locator(sel)
-                        return (el.inner_text()).strip() if el.count() > 0 else ""
+                    async def safe_text(selector):
+                        el = row.locator(selector)
+                        if await el.count() > 0:
+                            text = await el.inner_text()
+                            return text.strip()
+                        return ""
+
+
 
                     result = {
                         "Case Number": full_case_number,
@@ -285,18 +331,19 @@ async def court_dates(case_number: str) -> dict:
             if not results:
                 return {"answer": f"No court dates found for case {case_number}.", "source": DASHBOARD_URL}
 
-            formatted = "\n\n".join(
-                f"Case Number: {r['Case Number']}\nDate/Time: {r['Date/Time']}\nCourtroom: {r['Courtroom']}\nJudge: {r['Judge']}\nDetails: {r['Detail URL']}"
-                for r in results
-            )
+
+
+            first = results[0]  # Use the first result only
+            formatted = format_hearing_message(first)
 
             return {
                 "answer": formatted,
-                "source": DASHBOARD_URL
+                "source": first["Detail URL"]
             }
 
         finally:
             await browser.close()
+            logger.info("Court Date Function Complete")
 
 if __name__ == "__main__":
     mcp.run(transport="sse")

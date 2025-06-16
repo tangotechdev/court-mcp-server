@@ -9,3 +9,4 @@ BeautifulSoup4
 logger
 playwright>=1.52.0
 python-anticaptcha>=0.6.0
+setuptools>=65.5.0
