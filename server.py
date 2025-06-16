@@ -7,6 +7,7 @@ import httpx
 from dateutil import parser
 from datetime import datetime
 from bs4 import BeautifulSoup
+from typing import Optional
 import json
 import logging
 import asyncio
@@ -234,7 +235,7 @@ async def query_court_form(query: str) -> dict:
     return result
 
 @mcp.tool()
-async def court_dates(case_number: str) -> dict:
+async def court_dates_by_case_number(case_number: str) -> dict:
     """
     Search for upcoming North Carolina court dates based on case number.
     The user may ask for court date or when is my court date.
@@ -347,6 +348,152 @@ async def court_dates(case_number: str) -> dict:
         finally:
             await browser.close()
             logger.info("Court Date Function Complete")
+
+
+@mcp.tool()
+async def court_dates_by_name(first_name: str, last_name: str, county_name: str) -> dict:
+    """
+    Search for upcoming North Carolina court dates by party name and county.
+
+    Q: I need court date for Jane Smith in Durham County
+    A: { "first_name": "Jane", "last_name": "Smith", "county_name": "Durham" }  
+
+    Arguments:
+    - first_name (str): Required.
+    - last_name (str): Required.
+    - county_name (str): Required. County to filter by (e.g., "Pitt").
+
+    Returns:
+        dict: One court date results. Prompts user if more detail is needed.
+    """
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        try:
+            await page.goto(DASHBOARD_URL, timeout=30000)
+
+            if await page.locator("iframe[src*='recaptcha']").first.is_visible(timeout=5000):
+                logger.info("CAPTCHA detected. Solving...")
+                token = await solve_captcha_async()
+                await page.evaluate("""
+                    (token) => {
+                        let el = document.getElementById('g-recaptcha-response');
+                        if (!el) {
+                            el = document.createElement('textarea');
+                            el.id = 'g-recaptcha-response';
+                            el.name = 'g-recaptcha-response';
+                            el.style.display = 'block';
+                            document.body.appendChild(el);
+                        }
+                        el.value = token;
+                        el.style.display = 'block';
+                    }
+                """, token)
+            await page.wait_for_function("document.getElementById('g-recaptcha-response').value.length > 0")
+            logger.info("CAPTCHA solved and token injected.")
+
+            def extract_county_name(text: str) -> str:
+                match = re.search(r"in ([A-Z][a-z]+)\s+(County|Co\.?)", text)
+                if match:
+                    return match.group(1)
+                return ""
+
+            county_clean = re.sub(r"\s+(County|Co\.?)$", "", county_name.strip(), flags=re.IGNORECASE)
+            location_label = f"{county_clean} County"
+            await page.select_option("#cboHSLocationGroup", label=location_label)
+            await page.select_option("#cboHSHearingTypeGroup", label="All Hearing Types")
+            await page.select_option("#cboHSSearchBy", label="Party Name")
+
+            await page.fill("#txtHSLastName", last_name)
+            await page.fill("#txtHSFirstName", first_name)
+            
+            await page.fill("#SearchCriteria_DateFrom", today.strftime("%m/%d/%Y"))
+            await page.fill("#SearchCriteria_DateTo", future.strftime("%m/%d/%Y"))
+            logger.info(f"Search Inputs -> First Name: {first_name}, Last Name: {last_name}, County: {location_label}")
+
+            await page.click("#btnHSSubmit")
+            logger.info("Submit Data")
+
+            try:
+                await page.wait_for_function(
+                    "() => document.querySelectorAll('td.data-heading a.caseLink').length > 0",
+                    timeout=5000
+                )
+            except:
+                return {"answer": f"No court dates found for {first_name} {last_name}.", "source": DASHBOARD_URL}
+
+            tbody = page.locator("#hearingResultsGrid table tbody")
+            rows = await tbody.locator("tr").all()
+
+            results = []
+            for row in rows:
+                try:
+                    case_number_elem = row.locator("td.data-heading a.caseLink")
+                    if await case_number_elem.count() == 0:
+                        continue
+
+                    full_case_number = (await case_number_elem.inner_text()).strip()
+                    relative_url = await case_number_elem.get_attribute("data-url")
+                    full_url = f"https://portal-nc.tylertech.cloud{relative_url.strip()}" if relative_url else ""
+
+                    async def safe_text(selector):
+                        el = row.locator(selector)
+                        if await el.count() > 0:
+                            text = await el.inner_text()
+                            return text.strip()
+                        return ""
+
+                    result = {
+                        "Case Number": full_case_number,
+                        "Style/Defendant": await safe_text("td:nth-child(2)"),
+                        "Case Type": await safe_text("td:nth-child(3)"),
+                        "Date/Time": await safe_text("td:nth-child(4)"),
+                        "Hearing Type": await safe_text("td:nth-child(5)"),
+                        "Judge": await safe_text("td:nth-child(6)"),
+                        "Courtroom": await safe_text("td:nth-child(7)"),
+                        "Case Category": await safe_text("td:nth-child(8)"),
+                        "Detail URL": full_url,
+                    }
+                    results.append(result)
+                except Exception as e:
+                    logger.error(f"Error processing row: {e}")
+
+            if not results:
+                return {"answer": f"No court dates found for {first_name} {last_name}.", "source": DASHBOARD_URL}
+
+            limited_results = results[:3]
+
+            def format_hearing_message(result: dict) -> str:
+                return (
+                    f"{result['Style/Defendant'].upper()} has a {result['Hearing Type']} for a {result['Case Category'].lower()} case "
+                    f"(Case No. {result['Case Number']}) scheduled on {result['Date/Time']}. "
+                    f"It will be held in {result['Courtroom']}. "
+                    f"The presiding judge is {result['Judge'] or 'Unknown'}. "
+                    f"- More Details: {result['Detail URL']}"
+                )
+
+
+            if len(results) > 1:
+                formatted = (
+                    f"Found {len(results)} upcoming court dates for {first_name.upper()} {last_name.upper()}:\n\n"
+                    + "\n\n".join([format_hearing_message(r) for r in limited_results])
+                    + ("\n\n(Only showing the first 3. For full details, visit the court portal.)" if len(results) > 3 else "")
+                )
+            else:
+                formatted = format_hearing_message(results[0])
+
+            return {
+                "answer": formatted,
+                "source": DASHBOARD_URL
+            }
+
+
+        finally:
+            await browser.close()
+            logger.info("Court Date Function Complete")
+
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
