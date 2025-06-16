@@ -467,12 +467,12 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
 
             def format_hearing_message(result: dict) -> str:
                 return (
-                    f"{result['Style/Defendant'].upper()} has a {result['Hearing Type']} for a {result['Case Category'].lower()} case "
-                    f"(Case No. {result['Case Number']}) scheduled on {result['Date/Time']}. "
-                    f"It will be held in {result['Courtroom']}. "
-                    f"The presiding judge is {result['Judge'] or 'Unknown'}. "
-                    f"<a href='{result['Detail URL']}' target='_blank'>More Details</a>"
-                )
+                    f"**{result['Style/Defendant'].upper()}** has a **{result['Hearing Type']}** for a *{result['Case Category'].lower()}* case "
+                    f"(Case No. `{result['Case Number']}`) scheduled on **{result['Date/Time']}**. "
+                    f"It will be held in **{result['Courtroom']}**. "
+                    f"The presiding judge is **{result['Judge'] or 'Unknown'}**. "
+                    f"[More Details]({result['Detail URL']})"
+    )
 
 
             if len(results) > 1:
