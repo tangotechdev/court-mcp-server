@@ -86,23 +86,30 @@ async def fetch_closings(county_name: str) -> dict:
         resp.raise_for_status()
         data = resp.json()
 
+    last_county = None  # Track the last county to avoid repeating
     description_parts = []
 
     for alert in data.get("countyalerts", []):
-        if alert.get("county", "").lower() == normalized_location:
+        county = alert.get("county", "").strip()
+        if county.lower() == normalized_location:
+            county_section = []
+            if county.lower() != (last_county or "").lower():
+                county_section.append(f"## {county} County")
+                last_county = county
+
             for entry in alert.get("dates", []):
                 alert_info = entry.get("alerts", [{}])[0]
+                lines = []
 
-                # Header lines
-                lines = [f"{alert['county']} County"]
-
+                # Date range
                 start = format_date(entry["startdate"])
                 end = format_date(entry["enddate"])
                 if entry["startdate"] == entry["enddate"]:
-                    lines.append(f"{start}")
+                    lines.append(f"**{start}**")
                 else:
-                    lines.append(f"{start} - {end}")
+                    lines.append(f"**{start} - {end}**")
 
+                # Facility details
                 facility = alert_info.get("facility", {})
                 facility_name = facility.get("name", "").strip()
                 address = facility.get("address", "").strip()
@@ -110,7 +117,7 @@ async def fetch_closings(county_name: str) -> dict:
                 zip_code = facility.get("zip", "").strip()
 
                 if facility_name:
-                    lines.append(facility_name)
+                    lines.append(f"**{facility_name}**")
                 if address or city or zip_code:
                     full_address = f"{address}, {city} NC {zip_code}".replace("  ", " ").strip(", ")
                     lines.append(full_address)
@@ -118,22 +125,35 @@ async def fetch_closings(county_name: str) -> dict:
                 # Description
                 description = alert_info.get("description", "").strip()
                 if description:
+                    lines.append("")  # Line break before paragraph
                     lines.append(description)
 
-                # Office-specific closings
+                # Office closings
                 office_alerts = alert_info.get("officealerts", [])
                 if office_alerts:
-                    lines.append("")  # Empty line before Hours of Operation
-                    lines.append("Hours of operation:")
+                    lines.append("")  # Line break before section
+                    lines.append("### Hours of operation:")
                     for oa in office_alerts:
                         title = oa.get("title", "").strip()
                         closing = oa.get("closing", "").strip()
-                        lines.append(title)
-                        lines.append(closing)
+                        if title:
+                            lines.append(title)
+                        if closing:
+                            lines.append(closing)
 
-                description_parts.append("\n".join(lines))
+                # Separator for multiple entries
+                county_section.append("\n".join(lines))
+                county_section.append("---")
+
+            # Remove last separator if present
+            if county_section and county_section[-1] == "---":
+                county_section.pop()
+
+            description_parts.append("\n\n".join(county_section))
 
     description = "\n\n".join(description_parts).strip()
+
+
 
 
     if not description:
@@ -180,6 +200,9 @@ async def query_court_form(query: str) -> dict:
     items = soup.find_all('article', class_='list__item')
 
     results = []
+
+    results.append(f"Here are the **{query}** forms:\n")
+
     for el in items:
         num = el.select_one('div:nth-child(1) > .badge--pill')
         name = el.select_one('h5')
@@ -187,7 +210,7 @@ async def query_court_form(query: str) -> dict:
         if num and name and link:
             form_number = re.sub(r"(\r\n|\n|\r)", "", num.text).strip()
             form_name = re.sub(r"(\r\n|\n|\r)", "", name.text).strip()
-            results.append(f"{form_number} - {form_name}\n\n")
+            results.append(f"- **{form_number}** - {form_name}\n\n")
 
     if not results:
         return {"answer": "No forms found.", "source": url}
