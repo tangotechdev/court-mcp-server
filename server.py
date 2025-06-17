@@ -35,11 +35,8 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("Court Tools", host="0.0.0.0", port=port)
 
 
-def normalize_location(county_name: str) -> str:
-    county_name = county_name.strip()
-    if ", county" in county_name.lower() or "county" in county_name.lower():
-        return county_name  # already valid
-    return f"{county_name}"
+def normalize_location(name: str) -> str:
+    return name.replace("county", "").strip().lower()
 
 
 def format_date(date_str: str) -> str:
@@ -155,10 +152,9 @@ async def fetch_closings(county_name: str) -> dict:
 
 
 
-
     if not description:
         description = (
-            f"No specific adviosry or closing is reported for {county_name}. "
+            f"No specific advisory or closing is reported for {county_name}. "
         )
 
     result = {
