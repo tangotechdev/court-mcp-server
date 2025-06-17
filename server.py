@@ -91,45 +91,50 @@ async def fetch_closings(county_name: str) -> dict:
     for alert in data.get("countyalerts", []):
         if alert.get("county", "").lower() == normalized_location:
             for entry in alert.get("dates", []):
-                lines = ["**Closing Alert**"]
+                alert_info = entry.get("alerts", [{}])[0]
+
+                # Header lines
+                lines = [f"{alert['county']} County"]
+
                 start = format_date(entry["startdate"])
                 end = format_date(entry["enddate"])
                 if entry["startdate"] == entry["enddate"]:
-                    lines.append(f"Date: {start}")
+                    lines.append(f"{start}")
                 else:
-                    lines.append(f"Dates: {start} to {end}")
+                    lines.append(f"{start} - {end}")
 
-                # Optional description
-                desc = entry.get("alerts", [{}])[0].get("description")
-                if desc:
-                    lines.append(desc)
+                facility = alert_info.get("facility", {})
+                facility_name = facility.get("name", "").strip()
+                address = facility.get("address", "").strip()
+                city = facility.get("city", "").strip()
+                zip_code = facility.get("zip", "").strip()
+
+                if facility_name:
+                    lines.append(facility_name)
+                if address or city or zip_code:
+                    full_address = f"{address}, {city} NC {zip_code}".replace("  ", " ").strip(", ")
+                    lines.append(full_address)
+
+                # Description
+                description = alert_info.get("description", "").strip()
+                if description:
+                    lines.append(description)
 
                 # Office-specific closings
-                office_alerts = entry.get("alerts", [{}])[0].get("officealerts", [])
-                for oa in office_alerts:
-                    title = oa.get("title", "").strip()
-                    closing = oa.get("closing", "").strip()
-                    lines.append(f"{title} – **{closing}**")
-
-                # Alternate filing location info
-                alt = entry["alerts"][0]
-                alt_fields = [
-                    alt.get("filinginstructions"),
-                    alt.get("alternatename"),
-                    alt.get("alternateaddress"),
-                    None if not (alt.get("alternatecity") or alt.get("alternatezip")) 
-                         else f"{alt.get('alternatecity', '')}, {alt.get('alternatezip', '')}",
-                    alt.get("alternatephone"),
-                ]
-                alt_fields = [f for f in alt_fields if f]
-                if alt_fields:
-                    lines.append("")
-                    lines.append("**Alternate filing location:**")
-                    lines.extend(alt_fields)
+                office_alerts = alert_info.get("officealerts", [])
+                if office_alerts:
+                    lines.append("")  # Empty line before Hours of Operation
+                    lines.append("Hours of operation:")
+                    for oa in office_alerts:
+                        title = oa.get("title", "").strip()
+                        closing = oa.get("closing", "").strip()
+                        lines.append(title)
+                        lines.append(closing)
 
                 description_parts.append("\n".join(lines))
 
     description = "\n\n".join(description_parts).strip()
+
 
     if not description:
         description = (
