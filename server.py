@@ -335,14 +335,20 @@ async def court_dates_by_case_number(case_number: str) -> dict:
             if not results:
                 return {"answer": f"No court dates found for case {case_number}.", "source": DASHBOARD_URL}
 
-
+            def format_case_number_hearing_message(result: dict) -> str:
+                return (
+                    f"**{result['Style/Defendant'].upper()}** has a **{result['Hearing Type']}** for a *{result['Case Category'].lower()}* case "
+                    f"(Case No. {result['Case Number']}) scheduled on **{result['Date/Time']}**. "
+                    f"It will be held in **{result['Courtroom']}**. "
+                    f"The presiding judge is **{result['Judge'] or 'Unknown'}**."
+                )
 
             first = results[0]  # Use the first result only
-            formatted = format_hearing_message(first)
+            formatted = format_case_number_hearing_message(first)
 
             return {
                 "answer": formatted,
-                "source": first["Detail URL"]
+                "source": full_url
             }
 
         finally:
@@ -356,7 +362,10 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
     Search for upcoming North Carolina court dates by party name and county.
 
     Q: I need court date for Jane Smith in Durham County
-    A: { "first_name": "Jane", "last_name": "Smith", "county_name": "Durham" }  
+    A: { "first_name": "Jane",   "last_name": "Smith",  "county_name": "Durham"   }
+
+    Q: I need my court date for Melody Barto in Randolph County
+    A: { "first_name": "Melody", "last_name": "Barto",  "county_name": "Randolph" }
 
     Arguments:
     - first_name (str): Required.
