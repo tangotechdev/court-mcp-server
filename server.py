@@ -62,40 +62,6 @@ async def solve_captcha_async():
     return token
 
 
-def format_hearing_message(r):
-    try:
-        dt = parser.parse(r["Date/Time"])
-        date_str = dt.strftime("%B %-d, %Y")
-        time_str = dt.strftime("%-I:%M %p")
-    except Exception:
-        date_str = r["Date/Time"]
-        time_str = ""
-
-    # Extract defendant's name and clean it
-    style = r.get("Style/Defendant", "")
-    last_first = style.split(",")
-    if len(last_first) == 2:
-        defendant_name = f"{last_first[1].strip()} {last_first[0].strip()}"
-    else:
-        defendant_name = style.strip()
-
-    # Normalize courtroom location
-    courtroom = r.get("Courtroom", "")
-    if "courthouse" not in courtroom.lower():
-        courtroom += " at the County Courthouse"
-
-    # Normalize judge name
-    judge_raw = r.get("Judge", "")
-    judge = judge_raw.title().replace(",", "") if judge_raw else "Unknown"
-
-    message = (
-        f"{defendant_name} has a {r['Hearing Type']} for a {r['Case Type'].lower()} case "
-        f"(Case No. {r['Case Number']}) scheduled on {date_str} at {time_str}. "
-        f"It will be held in {courtroom}. The presiding judge is {judge}."
-    )
-
-    return message
-
 @mcp.tool()
 async def fetch_closings(county_name: str) -> dict:
     """
@@ -336,12 +302,21 @@ async def court_dates_by_case_number(case_number: str) -> dict:
                 return {"answer": f"No court dates found for case {case_number}.", "source": DASHBOARD_URL}
 
             def format_case_number_hearing_message(result: dict) -> str:
-                return (
-                    f"**{result['Style/Defendant'].upper()}** has a **{result['Hearing Type']}** for a *{result['Case Category'].lower()}* case "
-                    f"(Case No. {result['Case Number']}) scheduled on **{result['Date/Time']}**. "
-                    f"It will be held in **{result['Courtroom']}**. "
-                    f"The presiding judge is **{result['Judge'] or 'Unknown'}**."
-                )
+                lines = [
+                    f"Here’s what I found for {result['Style/Defendant'].title()}:",
+                    f"- **Hearing Type:** {result['Hearing Type']}",
+                    f"- **Case Category:** {result['Case Category'].lower()}",
+                    f"- **Case Number:** {result['Case Number']}",
+                    f"- **When:** {result['Date/Time']}",
+                    f"- **Where:** {result['Courtroom']}",
+                ]
+
+                # Only show judge if we have a real name
+                judge = result.get('Judge')
+                if judge and judge.lower() != 'unknown':
+                    lines.append(f"- **Judge:** {judge}")
+
+                return "\n".join(lines)
 
             first = results[0]  # Use the first result only
             formatted = format_case_number_hearing_message(first)
@@ -475,27 +450,35 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
             limited_results = results[:3]
 
             def format_hearing_message(result: dict) -> str:
-                return (
-                    f"**{result['Style/Defendant'].upper()}** has a **{result['Hearing Type']}** for a *{result['Case Category'].lower()}* case "
-                    f"(Case No. {result['Case Number']}) scheduled on **{result['Date/Time']}**. "
-                    f"It will be held in **{result['Courtroom']}**. "
-                    f"The presiding judge is **{result['Judge'] or 'Unknown'}**. "
-                    f"[More Details]({result['Detail URL']})"
-                )
+                lines = [
+                    f"Here’s what I found for {result['Style/Defendant'].title()}:",
+                    f"- **Hearing Type:** {result['Hearing Type']}",
+                    f"- **Case Category:** {result['Case Category'].lower()}",
+                    f"- **Case Number:** {result['Case Number']}",
+                    f"- **When:** {result['Date/Time']}",
+                    f"- **Where:** {result['Courtroom']}",
+                ]
+
+                # Only show judge if we have a real name
+                judge = result.get('Judge')
+                if judge and judge.lower() != 'unknown':
+                    lines.append(f"- **Judge:** {judge}")
+
+                return "\n".join(lines)
 
 
             if len(results) > 1:
+            # replace the multi-result summary with a single apology + Learn More link
                 formatted = (
-                    f"Found {len(results)} upcoming court dates for {first_name.upper()} {last_name.upper()}:\n\n"
-                    + "\n\n".join([format_hearing_message(r) for r in limited_results])
-                    + ("\n\n(Only showing the first 3. For full details, visit the court portal.)" if len(results) > 3 else "")
+                    "Sorry, I found more than one court date. "
+                    f"Please click [Learn More]({DASHBOARD_URL}) below."
                 )
             else:
                 formatted = format_hearing_message(results[0])
 
             return {
                 "answer": formatted,
-                "source": DASHBOARD_URL
+                "source": full_url
             }
 
 
