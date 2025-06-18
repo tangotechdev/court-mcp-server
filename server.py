@@ -157,15 +157,9 @@ async def fetch_closings(county_name: str) -> dict:
             f"No specific advisory or closing is reported for {county_name}. "
         )
 
-    result = {
-        "answer": description,
-        "source": "https://www.nccourts.gov/closings"
-    }
+    return f"{description}\n\nSOURCE: https://www.nccourts.gov/closings"
 
-    fetch_closings_result = json.dumps(result, separators=(",", ":"))
-    logger.info(fetch_closings_result)
 
-    return result
 
 @mcp.tool()
 async def query_court_form(query: str) -> dict:
@@ -214,15 +208,7 @@ async def query_court_form(query: str) -> dict:
     print(results)
     answer = "\n".join(results[:3])
 
-    result = {
-        "answer": answer,
-        "source": url
-    }
-
-    query_forms_result = json.dumps(result, separators=(",", ":"))
-    logger.info(query_forms_result)
-
-    return result
+    return f"{answer}\n\nSOURCE:{url}"
 
 @mcp.tool()
 async def court_dates_by_case_number(case_number: str) -> dict:
@@ -345,10 +331,7 @@ async def court_dates_by_case_number(case_number: str) -> dict:
             first = results[0]  # Use the first result only
             formatted = format_case_number_hearing_message(first)
 
-            return {
-                "answer": formatted,
-                "source": full_url
-            }
+            return f"{formatted}\n\nSOURCE:{full_url}"
 
         finally:
             await browser.close()
@@ -500,10 +483,7 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
             else:
                 formatted = format_hearing_message(results[0])
 
-            return {
-                "answer": formatted,
-                "source": full_url
-            }
+            return f"{formatted}\n\nSOURCE:{full_url}"
 
 
         finally:
