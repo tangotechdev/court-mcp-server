@@ -60,10 +60,12 @@ async def solve_captcha_async():
 
 
 @mcp.tool()
-async def fetch_closings(county_name: str) -> dict:
+async def fetch_closings(county_name: str | None = None) -> dict:
     """
-    Find if a courthouse or clerks office or county is closed based on a county name.
+    Find if a courthouse or clerks office or county is closed or has advisory based on a county name.
     The user may ask if there is a closing, the courthosue is closed, there is a weather outage, closed due to weather, etc.
+
+     Q: Is there a advisory for Durham County?
 
     Requires: 'county_name'
 
@@ -72,6 +74,10 @@ async def fetch_closings(county_name: str) -> dict:
         answer (str): 'description' containing the formatted alert text,
         source (str): the URL of https://www.nccourts.gov/closings
     """
+
+    if not county_name:
+        # Return a plain-text prompt for the agent to relay
+        return f"Sure, what county would you like to check on?\n\nSOURCE: https://www.nccourts.gov/closings"
 
     url = "https://nccourts-01-prod-json.s3.amazonaws.com/juno_alerts.json"
     county_lower = county_name.strip().lower()
@@ -167,13 +173,20 @@ async def query_court_form(query: str) -> dict:
     Search North Carolina court forms by keyword.
     The user may ask for a specific form name like Civil Summons or form number like AOC-CV-100
 
-    Requires: 'query'
+    Requires: 'formname'
 
    Returns:
     dict: JSON object with two keys—
     answer (str): newline-separated list of up to 3 form numbers & names,
     source (str): the URL used for the search.
     """
+
+
+    if not query:
+        # Return a plain-text prompt for the agent to relay
+        return f"Sure, what form are you looking for?\n\nSOURCE: https://www.nccourts.gov/forms"
+    
+
     suggestion_keyword = query.strip().rstrip('?')
     url = (
         "https://www.nccourts.gov/documents/forms?contains="
@@ -203,7 +216,7 @@ async def query_court_form(query: str) -> dict:
             results.append(f"- **{form_number}** - {form_name}\n\n")
 
     if not results:
-        return {"answer": "No forms found.", "source": url}
+        return f"No forms found.\n\nSOURCE: https://www.nccourts.gov/forms"
 
     print(results)
     answer = "\n".join(results[:3])
@@ -222,6 +235,10 @@ async def court_dates_by_case_number(case_number: str) -> dict:
     Returns:
         dict: JSON object with the court date info and a link to the case.
     """
+
+    if not case_number:
+        # Return a plain-text prompt for the agent to relay
+        return f"Sure, what Case Number do you want to lookup?\n\nSOURCE: https://www.nccourts.gov/"
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -357,6 +374,16 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
     Returns:
         dict: One court date results. Prompts user if more detail is needed.
     """
+
+    if not first_name:
+        return f"What's your first name?\n\nSOURCE: https://www.nccourts.gov/"
+    if not last_name:
+        return f"Thanks, {first_name}. What's your last name?\n\nSOURCE: https://www.nccourts.gov/"
+    if not county_name:
+        return f"Thanks, {first_name} {last_name}. What's County do your want to check?\n\nSOURCE: https://www.nccourts.gov/"
+
+
+    
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context()
