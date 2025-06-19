@@ -267,7 +267,7 @@ async def court_dates_by_case_number(case_number: str) -> dict:
                     timeout=5000
                 )
             except:
-                return {"answer": f"No court dates found for case {case_number}.", "source": DASHBOARD_URL}
+                return f"No court dates found for {case_number}\n\nSOURCE:{DASHBOARD_URL}"
 
             tbody = page.locator("#hearingResultsGrid table tbody")
             rows = await tbody.locator("tr").all()
@@ -309,7 +309,7 @@ async def court_dates_by_case_number(case_number: str) -> dict:
                     logger.error(f"Error processing row: {e}")
 
             if not results:
-                return {"answer": f"No court dates found for case {case_number}.", "source": DASHBOARD_URL}
+                return f"No court dates found for {case_number}\n\nSOURCE:{DASHBOARD_URL}"
 
             def format_case_number_hearing_message(result: dict) -> str:
                 lines = [
@@ -341,7 +341,7 @@ async def court_dates_by_case_number(case_number: str) -> dict:
 @mcp.tool()
 async def court_dates_by_name(first_name: str, last_name: str, county_name: str) -> dict:
     """
-    Search for upcoming North Carolina court dates by party name and county.
+    Search for North Carolina court dates by party name and county.
 
     Q: I need court date for Jane Smith in Durham County
     A: { "first_name": "Jane",   "last_name": "Smith",  "county_name": "Durham"   }
@@ -352,7 +352,7 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
     Arguments:
     - first_name (str): Required.
     - last_name (str): Required.
-    - county_name (str): Required. County to filter by (e.g., "Pitt").
+    - county_name (str): Required.
 
     Returns:
         dict: One court date results. Prompts user if more detail is needed.
@@ -413,7 +413,7 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
                     timeout=5000
                 )
             except:
-                return {"answer": f"No court dates found for {first_name} {last_name}.", "source": DASHBOARD_URL}
+                return f"No court dates found for {first_name} {last_name}\n\nSOURCE:{DASHBOARD_URL}"
 
             tbody = page.locator("#hearingResultsGrid table tbody")
             rows = await tbody.locator("tr").all()
@@ -452,7 +452,8 @@ async def court_dates_by_name(first_name: str, last_name: str, county_name: str)
                     logger.error(f"Error processing row: {e}")
 
             if not results:
-                return {"answer": f"No court dates found for {first_name} {last_name}.", "source": DASHBOARD_URL}
+                return f"No court dates found for {first_name} {last_name}\n\nSOURCE:{DASHBOARD_URL}"
+
 
             limited_results = results[:3]
 
