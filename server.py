@@ -360,16 +360,17 @@ async def court_dates_by_case_number(case_number: str) -> str:
                     logger.error(f"Error processing row: {e}")
 
             if not results:
-                return f"No court dates found for {case_number}\n\nSOURCE:{DASHBOARD_URL}"
+                return f"No court dates found for {case_number}\n\nSOURCE:{DASHBOARD_URL}\n\nNeed Help? Contact the Clerk of Court in the County where the case is assigned for specific case information."
 
             def format_case_number_hearing_message(result: dict) -> str:
                 lines = [
-                    f"Here’s what I found for {result['Style/Defendant'].title()}:",
+                    f"Here’s what I found for **{result['Style/Defendant'].title()}**:",
                     f"- **Hearing Type:** {result['Hearing Type']}",
-                    f"- **Case Category:** {result['Case Category'].lower()}",
+                    f"- **Case Category:** {result['Case Category']}",
                     f"- **Case Number:** {result['Case Number']}",
                     f"- **When:** {result['Date/Time']}",
                     f"- **Where:** {result['Courtroom']}",
+                    f"\n\nNeed Help? Contact the Clerk of Court in the County where the case is assigned for specific case information"
                 ]
 
                 # Only show judge if we have a real name
