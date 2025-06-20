@@ -171,15 +171,30 @@ async def query_court_form(query: str) -> str:
     if not query:
         return f"Sure, what form are you looking for?\n\nSOURCE: https://www.nccourts.gov/forms"
 
-    keyword = query.strip().rstrip("?")
+    raw = query.strip().rstrip("?")
     base_url = "https://www.nccourts.gov"
-    search_path = (
-        "/documents/forms?contains="
-        + keyword
-        + "&field_form_type_target_id=All&field_language_target_id=All"
-    )
-    url = base_url + search_path
+    # 1) Detect if the user actually gave a form number
+    form_match = re.search(r"\b[A-Za-z]+-[A-Za-z]-\d+\b", raw)
+    if form_match:
+        keyword = form_match.group(0)
+        is_number_query = True
+    else:
+        # remove the filler word “form”
+        keyword = re.sub(r"(?i)\bform\b", "", raw).strip()
+        is_number_query = False
 
+    # ←– INSERT THIS CHECK
+    if not is_number_query and not keyword:
+        return "Sure, what form are you looking for?\n\nSOURCE: https://www.nccourts.gov/forms"
+
+    url = (
+        f"{base_url}/documents/forms"
+        f"?contains={keyword}"
+        "&field_form_type_target_id=All"
+        "&field_language_target_id=All"
+    )
+
+    # 2) Fetch and parse
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(url)
@@ -187,13 +202,14 @@ async def query_court_form(query: str) -> str:
             html = resp.text
     except httpx.HTTPError as e:
         logger.error("Error fetching forms: %s", e)
-        return f"Sorry, I couldn’t fetch forms right now. Please try again later.\n\nSOURCE:{url}"
+        return f"Sorry, I couldn’t fetch forms right now.\n\nSOURCE:{url}"
 
     soup = BeautifulSoup(html, "html.parser")
     items = soup.find_all("article", class_="list__item")
 
+    # 3) Build entries, but if it was a number‐query, only keep exact matches
     entries = []
-    for el in items[:3]:  # limit to first 3 results
+    for el in items:
         num_tag  = el.select_one("div:nth-child(1) > .badge--pill")
         name_tag = el.select_one("h5 > a")
         if not (num_tag and name_tag):
@@ -204,10 +220,28 @@ async def query_court_form(query: str) -> str:
         href        = name_tag.get("href")
         link        = urljoin(base_url, href) if href else url
 
-        entries.append(f"- **{form_number}**: {form_name}")
+        # If the user asked for a form number, only include exact matches
+        if is_number_query and form_number.lower() != keyword.lower():
+            continue
 
+        entries.append(f"- **{form_number}**: {form_name}  ([link]({link}))")
+
+        # If exact-number query, stop after first match
+        if is_number_query:
+            break
+
+        # Otherwise, limit to 3 total
+        if len(entries) >= 3:
+            break
+
+    # 4) Format answer
     if entries:
-        answer = f"Here are the top {len(entries)} results for **{query}**:\n\n" + "\n".join(entries)
+        if is_number_query and len(entries) == 0:
+            answer = f"No form *{keyword}* found."
+        elif is_number_query:
+            answer = f"Found form **{keyword}**:\n\n" + entries[0]
+        else:
+            answer = f"Here are the top {len(entries)} results for **{keyword}**:\n\n" + "\n".join(entries)
     else:
         answer = "No forms found."
 
@@ -225,22 +259,17 @@ async def court_dates_by_case_number(case_number: str) -> str:
     Search for upcoming North Carolina court dates based on case number.
     
     Requires:
-      - case_number (str): format like 25CR000000-123
+      - case_number (str)
 
     Returns:
       str: formatted court-date info and SOURCE URL.
     """
     # 1) Prompt if missing
-    if not case_number:
-        return (
-            "Sure, what case number would you like to look up?\n\n"
-            f"SOURCE: {DASHBOARD_URL}"
-        )
-    
+   
     pattern = re.compile(r"^[0-9]{2}[A-Za-z]{2,4}[0-9]{6}-?[0-9]+$")
     if not pattern.match(case_number.strip()):
         return (
-            "That doesn’t look like a valid NC case number. "
+            "Sure, what case number would you like to look up?\n\n"
             "It should look like “25CR000000-123” or “25CR000000123”.\n\n"
             f"SOURCE: {DASHBOARD_URL}"
         )
