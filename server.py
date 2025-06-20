@@ -1,14 +1,11 @@
 import os
 from mcp.server.fastmcp import FastMCP
-import requests
 import re
-import difflib
 import httpx
 from dateutil import parser
 from datetime import datetime
 from bs4 import BeautifulSoup
-from typing import Optional
-import json
+from urllib.parse import urljoin
 import logging
 import asyncio
 from datetime import datetime, timedelta
@@ -59,186 +56,194 @@ async def solve_captcha_async():
     return token
 
 
-@mcp.tool()
-async def fetch_closings(county_name: str | None = None) -> dict:
+@mcp.tool(
+    annotations={
+        "title": "Fetch NC Court Closings",
+        "openWorldHint": False,
+        "readOnlyHint": True
+    }
+)
+async def fetch_closings(countyname: str) -> str:
     """
-    Find if a courthouse or clerks office or county is closed or has advisory based on a county name.
-    The user may ask if there is a closing, the courthosue is closed, there is a weather outage, closed due to weather, etc.
-
-     Q: Is there a advisory for Durham County?
-
-    Requires: 'county_name'
-
-    Returns:
-         dict: JSON object with two keys—
-        answer (str): 'description' containing the formatted alert text,
-        source (str): the URL of https://www.nccourts.gov/closings
+    Lookup if a county courthouse or clerk's office is closed/advisory.
+    SOURCE: https://www.nccourts.gov/closings
     """
+    logger.info("fetch_closings called with countyname=%r", countyname)
 
-    if not county_name:
-        # Return a plain-text prompt for the agent to relay
-        return f"Sure, what county would you like to check on?\n\nSOURCE: https://www.nccourts.gov/closings"
+    if not countyname:
+        return "What county would you like to check on?\n\nSOURCE: https://www.nccourts.gov/closings"
 
     url = "https://nccourts-01-prod-json.s3.amazonaws.com/juno_alerts.json"
-    county_lower = county_name.strip().lower()
+    normalized = normalize_location(countyname.strip().lower())
 
-    normalized_location = normalize_location(county_lower)
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        data = resp.json()
-
-    last_county = None  # Track the last county to avoid repeating
     description_parts = []
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as e:
+        logger.error("HTTP error fetching closings: %s", e)
+        return "Sorry, I ran into a error. Please try again later."
+
+    last_county = None
 
     for alert in data.get("countyalerts", []):
         county = alert.get("county", "").strip()
-        if county.lower() == normalized_location:
-            county_section = []
-            if county.lower() != (last_county or "").lower():
-                county_section.append(f"## {county} County")
-                last_county = county
+        if county.lower() != normalized:
+            continue
 
-            for entry in alert.get("dates", []):
-                alert_info = entry.get("alerts", [{}])[0]
-                lines = []
+        section = [f"## {county} County"]
+        for entry in alert.get("dates", []):
+            start_raw = entry.get("startdate")
+            end_raw   = entry.get("enddate")
 
-                # Date range
-                start = format_date(entry["startdate"])
-                end = format_date(entry["enddate"])
-                if entry["startdate"] == entry["enddate"]:
-                    lines.append(f"**{start}**")
-                else:
-                    lines.append(f"**{start} - {end}**")
+            start = format_date(start_raw) if start_raw else "Unknown"
+            end   = format_date(end_raw)   if end_raw   else None
 
-                # Facility details
-                facility = alert_info.get("facility", {})
-                facility_name = facility.get("name", "").strip()
-                address = facility.get("address", "").strip()
-                city = facility.get("city", "").strip()
-                zip_code = facility.get("zip", "").strip()
+            # Date line
+            if start_raw == end_raw or not end:
+                section.append(f"**{start}**")
+            else:
+                section.append(f"**{start} – {end}**")
 
-                if facility_name:
-                    lines.append(f"**{facility_name}**")
-                if address or city or zip_code:
-                    full_address = f"{address}, {city} NC {zip_code}".replace("  ", " ").strip(", ")
-                    lines.append(full_address)
+            info = entry.get("alerts", [{}])[0]
+            # Facility
+            name = info.get("facility", {}).get("name", "").strip()
+            addr = info.get("facility", {}).get("address", "").strip()
+            city = info.get("facility", {}).get("city", "").strip()
+            zc   = info.get("facility", {}).get("zip", "").strip()
+            if name:
+                section.append(f"**{name}**")
+            if any((addr, city, zc)):
+                section.append(f"{addr}, {city} NC {zc}".replace("  ", " ").strip(", "))
 
-                # Description
-                description = alert_info.get("description", "").strip()
-                if description:
-                    lines.append("")  # Line break before paragraph
-                    lines.append(description)
+            # Description
+            desc = info.get("description", "").strip()
+            if desc:
+                section.append("")  # blank line
+                section.append(desc)
 
-                # Office closings
-                office_alerts = alert_info.get("officealerts", [])
-                if office_alerts:
-                    lines.append("")  # Line break before section
-                    lines.append("### Hours of operation:")
-                    for oa in office_alerts:
-                        title = oa.get("title", "").strip()
-                        closing = oa.get("closing", "").strip()
-                        if title:
-                            lines.append(title)
-                        if closing:
-                            lines.append(closing)
+            # Office hours
+            oa_list = info.get("officealerts", [])
+            if oa_list:
+                section.append("")
+                section.append("### Hours of operation:")
+                for oa in oa_list:
+                    title   = oa.get("title", "").strip()
+                    closing = oa.get("closing", "").strip()
+                    if title:
+                        section.append(title)
+                    if closing:
+                        section.append(closing)
 
-                # Separator for multiple entries
-                county_section.append("\n".join(lines))
-                county_section.append("---")
+            section.append("---")
 
-            # Remove last separator if present
-            if county_section and county_section[-1] == "---":
-                county_section.pop()
+        if section and section[-1] == "---":
+            section.pop()
+        description_parts.append("\n\n".join(section))
 
-            description_parts.append("\n\n".join(county_section))
+    full_desc = "\n\n".join(description_parts).strip()
+    if not full_desc:
+        full_desc = f"No specific advisory or closing is reported for {countyname}."
 
-    description = "\n\n".join(description_parts).strip()
+    return f"{full_desc}\n\nSOURCE: https://www.nccourts.gov/closings"
 
 
 
-    if not description:
-        description = (
-            f"No specific advisory or closing is reported for {county_name}. "
-        )
-
-    return f"{description}\n\nSOURCE: https://www.nccourts.gov/closings"
-
-
-
-@mcp.tool()
-async def query_court_form(query: str) -> dict:
+@mcp.tool(
+    annotations={
+        "title": "Search NC Court Forms",
+        "readOnlyHint": True,
+        "openWorldHint": False
+    }
+)
+async def query_court_form(query: str) -> str:
     """
-    Search North Carolina court forms by keyword.
-    The user may ask for a specific form name like Civil Summons or form number like AOC-CV-100
+    Search North Carolina court forms by keyword or form number.
 
-    Requires: 'formname'
+    Requires:
+      - query (str): keyword or form number to search.
 
-   Returns:
-    dict: JSON object with two keys—
-    answer (str): newline-separated list of up to 3 form numbers & names,
-    source (str): the URL used for the search.
+    Returns:
+      str: newline-separated list of up to 3 form numbers & names, plus SOURCE URL.
     """
-
-
     if not query:
-        # Return a plain-text prompt for the agent to relay
         return f"Sure, what form are you looking for?\n\nSOURCE: https://www.nccourts.gov/forms"
-    
 
-    suggestion_keyword = query.strip().rstrip('?')
-    url = (
-        "https://www.nccourts.gov/documents/forms?contains="
-        + suggestion_keyword
+    keyword = query.strip().rstrip("?")
+    base_url = "https://www.nccourts.gov"
+    search_path = (
+        "/documents/forms?contains="
+        + keyword
         + "&field_form_type_target_id=All&field_language_target_id=All"
     )
+    url = base_url + search_path
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        html = resp.text
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            html = resp.text
+    except httpx.HTTPError as e:
+        logger.error("Error fetching forms: %s", e)
+        return f"Sorry, I couldn’t fetch forms right now. Please try again later.\n\nSOURCE:{url}"
 
-    soup = BeautifulSoup(html, 'html.parser')
-    items = soup.find_all('article', class_='list__item')
+    soup = BeautifulSoup(html, "html.parser")
+    items = soup.find_all("article", class_="list__item")
 
-    results = []
+    entries = []
+    for el in items[:3]:  # limit to first 3 results
+        num_tag  = el.select_one("div:nth-child(1) > .badge--pill")
+        name_tag = el.select_one("h5 > a")
+        if not (num_tag and name_tag):
+            continue
 
-    results.append(f"Here are the **{query}** forms:\n")
+        form_number = re.sub(r"\s+", " ", num_tag.get_text()).strip()
+        form_name   = re.sub(r"\s+", " ", name_tag.get_text()).strip()
+        href        = name_tag.get("href")
+        link        = urljoin(base_url, href) if href else url
 
-    for el in items:
-        num = el.select_one('div:nth-child(1) > .badge--pill')
-        name = el.select_one('h5')
-        link = el.select_one('h5 > a')
-        if num and name and link:
-            form_number = re.sub(r"(\r\n|\n|\r)", "", num.text).strip()
-            form_name = re.sub(r"(\r\n|\n|\r)", "", name.text).strip()
-            results.append(f"- **{form_number}** - {form_name}\n\n")
+        entries.append(f"- **{form_number}**: {form_name}")
 
-    if not results:
-        return f"No forms found.\n\nSOURCE: https://www.nccourts.gov/forms"
-
-    print(results)
-    answer = "\n".join(results[:3])
+    if entries:
+        answer = f"Here are the top {len(entries)} results for **{query}**:\n\n" + "\n".join(entries)
+    else:
+        answer = "No forms found."
 
     return f"{answer}\n\nSOURCE:{url}"
 
-@mcp.tool()
-async def court_dates_by_case_number(case_number: str) -> dict:
+@mcp.tool(
+    annotations={
+        "title": "Lookup NC Court Date by Case #",
+        "readOnlyHint": True,
+        "openWorldHint": False
+    }
+)
+async def court_dates_by_case_number(case_number: str) -> str:
     """
     Search for upcoming North Carolina court dates based on case number.
-    The user may ask for court date or when is my court date.
-    THe case_number needs to be formatted like: 25CR000000-123
-
-    Requires: 'case_number'
+    
+    Requires:
+      - case_number (str): format like 25CR000000-123
 
     Returns:
-        dict: JSON object with the court date info and a link to the case.
+      str: formatted court-date info and SOURCE URL.
     """
-
+    # 1) Prompt if missing
     if not case_number:
-        # Return a plain-text prompt for the agent to relay
-        return f"Sure, what Case Number do you want to lookup?\n\nSOURCE: https://www.nccourts.gov/"
+        return (
+            "Sure, what case number would you like to look up?\n\n"
+            f"SOURCE: {DASHBOARD_URL}"
+        )
+    
+    pattern = re.compile(r"^[0-9]{2}[A-Za-z]{2,4}[0-9]{6}-?[0-9]+$")
+    if not pattern.match(case_number.strip()):
+        return (
+            "That doesn’t look like a valid NC case number. "
+            "It should look like “25CR000000-123” or “25CR000000123”.\n\n"
+            f"SOURCE: {DASHBOARD_URL}"
+        )
     
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -353,162 +358,6 @@ async def court_dates_by_case_number(case_number: str) -> dict:
         finally:
             await browser.close()
             logger.info("Court Date Function Complete")
-
-
-# @mcp.tool()
-# async def court_dates_by_name(first_name: str, last_name: str, county_name: str) -> dict:
-#     """
-#     Searches North Carolina court dockets by a person’s first and last name  within a specified county.
-#
-#     Requires:
-#         first_name
-#         last_name 
-#         county_name
-#
-#     Returns:
-#         dict: 
-#             - If one matching case is found, returns its court date and basic case info.
-#             - If multiple matches or insufficient details, returns a prompt asking the user to refine their query.
-#     """
-#
-#     if not first_name:
-#         return f"What's your first name?\n\nSOURCE: https://www.nccourts.gov/"
-#     if not last_name:
-#         return f"Thanks, {first_name}. What's your last name?\n\nSOURCE: https://www.nccourts.gov/"
-#     if not county_name:
-#         return f"Thanks, {first_name} {last_name}. What's County do your want to check?\n\nSOURCE: https://www.nccourts.gov/"
-#
-#     async with async_playwright() as p:
-#         browser = await p.chromium.launch(headless=True)
-#         context = await browser.new_context()
-#         page = await context.new_page()
-#
-#         try:
-#             await page.goto(DASHBOARD_URL, timeout=30000)
-#
-#             if await page.locator("iframe[src*='recaptcha']").first.is_visible(timeout=5000):
-#                 logger.info("CAPTCHA detected. Solving...")
-#                 token = await solve_captcha_async()
-#                 await page.evaluate("""
-#                     (token) => {
-#                         let el = document.getElementById('g-recaptcha-response');
-#                         if (!el) {
-#                             el = document.createElement('textarea');
-#                             el.id = 'g-recaptcha-response';
-#                             el.name = 'g-recaptcha-response';
-#                             el.style.display = 'block';
-#                             document.body.appendChild(el);
-#                         }
-#                         el.value = token;
-#                         el.style.display = 'block';
-#                     }
-#                 """, token)
-#             await page.wait_for_function("document.getElementById('g-recaptcha-response').value.length > 0")
-#             logger.info("CAPTCHA solved and token injected.")
-#
-#             def extract_county_name(text: str) -> str:
-#                 match = re.search(r"in ([A-Z][a-z]+)\s+(County|Co\.?)", text)
-#                 if match:
-#                     return match.group(1)
-#                 return ""
-#
-#             county_clean = re.sub(r"\s+(County|Co\.?)$", "", county_name.strip(), flags=re.IGNORECASE)
-#             location_label = f"{county_clean} County"
-#             await page.select_option("#cboHSLocationGroup", label=location_label)
-#             await page.select_option("#cboHSHearingTypeGroup", label="All Hearing Types")
-#             await page.select_option("#cboHSSearchBy", label="Party Name")
-#
-#             await page.fill("#txtHSLastName", last_name)
-#             await page.fill("#txtHSFirstName", first_name)
-#            
-#             await page.fill("#SearchCriteria_DateFrom", today.strftime("%m/%d/%Y"))
-#             await page.fill("#SearchCriteria_DateTo", future.strftime("%m/%d/%Y"))
-#             logger.info(f"Search Inputs -> First Name: {first_name}, Last Name: {last_name}, County: {location_label}")
-#
-#             await page.click("#btnHSSubmit")
-#             logger.info("Submit Data")
-#
-#             try:
-#                 await page.wait_for_function(
-#                     "() => document.querySelectorAll('td.data-heading a.caseLink').length > 0",
-#                     timeout=5000
-#                 )
-#             except:
-#                 return f"No court dates found for {first_name} {last_name}\n\nSOURCE:{DASHBOARD_URL}"
-#
-#             tbody = page.locator("#hearingResultsGrid table tbody")
-#             rows = await tbody.locator("tr").all()
-#
-#             results = []
-#             for row in rows:
-#                 try:
-#                     case_number_elem = row.locator("td.data-heading a.caseLink")
-#                     if await case_number_elem.count() == 0:
-#                         continue
-#
-#                     full_case_number = (await case_number_elem.inner_text()).strip()
-#                     relative_url = await case_number_elem.get_attribute("data-url")
-#                     full_url = f"https://portal-nc.tylertech.cloud{relative_url.strip()}" if relative_url else ""
-#
-#                     async def safe_text(selector):
-#                         el = row.locator(selector)
-#                         if await el.count() > 0:
-#                             text = await el.inner_text()
-#                             return text.strip()
-#                         return ""
-#
-#                     result = {
-#                         "Case Number": full_case_number,
-#                         "Style/Defendant": await safe_text("td:nth-child(2)"),
-#                         "Case Type": await safe_text("td:nth-child(3)"),
-#                         "Date/Time": await safe_text("td:nth-child(4)"),
-#                         "Hearing Type": await safe_text("td:nth-child(5)"),
-#                         "Judge": await safe_text("td:nth-child(6)"),
-#                         "Courtroom": await safe_text("td:nth-child(7)"),
-#                         "Case Category": await safe_text("td:nth-child(8)"),
-#                         "Detail URL": full_url,
-#                     }
-#                     results.append(result)
-#                 except Exception as e:
-#                     logger.error(f"Error processing row: {e}")
-#
-#             if not results:
-#                 return f"No court dates found for {first_name} {last_name}\n\nSOURCE:{DASHBOARD_URL}"
-#
-#             limited_results = results[:3]
-#
-#             def format_hearing_message(result: dict) -> str:
-#                 lines = [
-#                     f"Here’s what I found for {result['Style/Defendant'].title()}:",
-#                     f"- **Hearing Type:** {result['Hearing Type']}",
-#                     f"- **Case Category:** {result['Case Category'].lower()}",
-#                     f"- **Case Number:** {result['Case Number']}",
-#                     f"- **When:** {result['Date/Time']}",
-#                     f"- **Where:** {result['Courtroom']}",
-#                 ]
-#
-#                 # Only show judge if we have a real name
-#                 judge = result.get('Judge')
-#                 if judge and judge.lower() != 'unknown':
-#                     lines.append(f"- **Judge:** {judge}")
-#
-#                 return "\n".join(lines)
-#
-#             if len(results) > 1:
-#                 # replace the multi-result summary with a single apology + Learn More link
-#                 formatted = (
-#                     "Sorry, I found more than one court date. "
-#                     f"Please click [Learn More]({DASHBOARD_URL}) below."
-#                 )
-#             else:
-#                 formatted = format_hearing_message(results[0])
-#
-#             return f"{formatted}\n\nSOURCE:{full_url}"
-#
-#         finally:
-#             await browser.close()
-#             logger.info("Court Date Function Complete")
-
 
 
 if __name__ == "__main__":
