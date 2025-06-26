@@ -224,7 +224,7 @@ async def query_court_form(query: str) -> str:
         if is_number_query and form_number.lower() != keyword.lower():
             continue
 
-        entries.append(f"- **{form_number}**: {form_name}  ([link]({link}))")
+        entries.append(f"- **{form_number}**: {form_name}")
 
         # If exact-number query, stop after first match
         if is_number_query:
@@ -241,7 +241,7 @@ async def query_court_form(query: str) -> str:
         elif is_number_query:
             answer = f"Found form **{keyword}**:\n\n" + entries[0]
         else:
-            answer = f"Here are the top {len(entries)} results for **{keyword}**:\n\n" + "\n".join(entries)
+            answer = f"Here are the top results for **{keyword}**:\n\n" + "\n".join(entries)
     else:
         answer = "No forms found."
 
