@@ -224,7 +224,7 @@ async def query_court_form(query: str) -> str:
         if is_number_query and form_number.lower() != keyword.lower():
             continue
 
-        entries.append(f"- **{form_number}**: {form_name}")
+        entries.append(f"- **{form_number}**: {form_name} - [Download]({link})")
 
         # If exact-number query, stop after first match
         if is_number_query:
@@ -320,7 +320,7 @@ async def court_dates_by_case_number(case_number: str) -> str:
                     timeout=5000
                 )
             except:
-                return f"No court dates found for {case_number}\n\nSOURCE:{DASHBOARD_URL}"
+                return f"No court dates found for {case_number}\n\nNeed Help? Contact the Clerk of Court in the County where the case is assigned for specific case information.\n\nSOURCE:{DASHBOARD_URL}"
 
             tbody = page.locator("#hearingResultsGrid table tbody")
             rows = await tbody.locator("tr").all()
@@ -375,10 +375,6 @@ async def court_dates_by_case_number(case_number: str) -> str:
                     f"\n\nNeed Help? Contact the Clerk of Court in the County where the case is assigned for specific case information"
                 ]
 
-                # Only show judge if we have a real name
-                judge = result.get('Judge')
-                if judge and judge.lower() != 'unknown':
-                    lines.append(f"- **Judge:** {judge}")
 
                 return "\n".join(lines)
 
