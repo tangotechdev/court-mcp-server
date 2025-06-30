@@ -11,7 +11,7 @@ COPY . .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Install Playwright browser binaries
-RUN playwright install
+# RUN playwright install
 
 # Optional: expose your server port
 EXPOSE 10000

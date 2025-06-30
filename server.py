@@ -273,9 +273,11 @@ async def court_dates_by_case_number(case_number: str) -> str:
             "It should look like “25CR000000-123” or “25CR000000123”.\n\n"
             f"SOURCE: {DASHBOARD_URL}"
         )
+    TOKEN = "2SaxS3OpzTZ4SVh6731f59b991f30294079106ed7d3fefbd2"
+    ws_endpoint = f"wss://production-sfo.browserless.io?token={TOKEN}"
     
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.connect_over_cdp(ws_endpoint)
         context = await browser.new_context()
         page = await context.new_page()
 
