@@ -285,7 +285,7 @@ async def court_dates_by_case_number(case_number: str) -> str:
             await page.goto(DASHBOARD_URL, timeout=30000)
 
             # If CAPTCHA is visible, solve and inject token
-            if await page.locator("iframe[src*='recaptcha']").first.is_visible(timeout=5000):
+            if await page.locator("iframe[src*='recaptcha']").first.is_visible():
                 logger.info("CAPTCHA detected. Solving...")
                 token = await solve_captcha_async()
                 await page.evaluate("""
